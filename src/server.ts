@@ -1,5 +1,5 @@
 import app from './app.js';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 
 declare let process: {
   env: {
