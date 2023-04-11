@@ -1,6 +1,7 @@
-import { createNativeClient, getDefaultLibraryFilename } from 'node-firebird-driver-native';
-import { /*ResultSet, FetchOptions,*/ Attachment, ConnectOptions } from 'node-firebird-driver';
+import { createNativeClient, getDefaultLibraryFilename, Attachment, Statement } from 'node-firebird-driver-native';
+import { /*ResultSet, FetchOptions, Attachment, */ ConnectOptions } from 'node-firebird-driver';
 import { createPool } from 'generic-pool';
+import { LRUCache } from 'lru-cache'
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -15,16 +16,27 @@ console.log(connectionString);
 const loginString: ConnectOptions = { username: `${DB_USER}`, password: `${DB_PASSWORD}` };
 
 /* фабрика коннектов к базе */
+interface IConnDB{
+  attachment: Attachment,
+  queryCache: LRUCache<any, any, unknown>,
+}
+
 const dbFactory = {
-  create: function () {
+  create: async function () {
     const client = createNativeClient(getDefaultLibraryFilename());
-    const attachment = client.connect(connectionString, loginString);
-    console.log(`подключение к базе данных`);
-    return attachment;
+    const attachment = await client.connect(connectionString, loginString);
+    const options = {
+      max: 50,
+      ttl: 1000 * 60 * 60,
+    }  
+    const queryCache = new LRUCache<string, Statement>(options)
+    const ret:IConnDB = {attachment: attachment, queryCache: queryCache}
+    console.log(`connect`);
+    return ret;
   },
-  destroy: function (connection: Attachment) {
-    console.log(`закрыть базу данных`);
-    return connection.disconnect();
+  destroy: function (connection:IConnDB) {
+    connection.queryCache.clear();
+    return connection.attachment.disconnect();
   },
 };
 
@@ -41,13 +53,18 @@ export const handleExit = () => {
 };
 
 export async function QueryOpen(sql: string, prm: undefined[]): Promise<object[]> {
-  const attachment = await dbPool.acquire();
+  const conn = await dbPool.acquire();
   console.log(`SQL = ${sql}`);
   console.log(`PRM = ${prm}`);
-  const transaction = await attachment.startTransaction();
-  const stat = await attachment.prepare(transaction, sql, undefined);
+  const transaction = await conn.attachment.startTransaction();
+  let stat:Statement = conn.queryCache.get(sql);
+  if (!stat) {
+    stat = await conn.attachment.prepare(transaction, sql, undefined);
+    conn.queryCache.set(sql,stat);
+  }
   const recSet = await stat.executeQuery(transaction, prm, undefined);
   const res = await recSet.fetchAsObject();
-  dbPool.release(attachment);
+  recSet.close();
+  dbPool.release(conn);
   return res;
 }
