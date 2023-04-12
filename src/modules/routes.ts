@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import { QueryOpen } from './db.js';
 
 const routes = Router();
@@ -23,7 +23,13 @@ routes.get('/ProcInfo', (req, res) => {
   addprm(name, prm);
   QueryOpen('select * from met$proc_info_s(?)', prm)
     .then((result) => res.status(201).json(result))
-    .catch((err) => res.status(500).json({ sqlerror: err.message, pros: 'met$proc_info_s', sqlprm: prm }));
+    .catch((err) =>
+      res.status(500).json({
+        sqlerror: err.message,
+        pros: 'met$proc_info_s',
+        sqlprm: prm,
+      }),
+    );
 });
 
 routes.get('/ProcPrmInfo', (req, res) => {
@@ -32,13 +38,19 @@ routes.get('/ProcPrmInfo', (req, res) => {
   addprm(name, prm);
   QueryOpen('select * from met$proc_field_info_s(?)', prm)
     .then((result) => res.status(201).json(result))
-    .catch((err) => res.status(500).json({ sqlerror: err.message, pros: 'met$proc_field_info_s', sqlprm: prm }));
+    .catch((err) =>
+      res.status(500).json({
+        sqlerror: err.message,
+        pros: 'met$proc_field_info_s',
+        sqlprm: prm,
+      }),
+    );
 });
 
 routes.post('/query', async (req: Request, res: Response) => {
   //const query = req.body.query;
   const procedureName = req.body.procedureName;
-  const queryParams = req.body;
+  const queryParams = req.body.prm;
   const prm: undefined[] = [];
   let params: string[] = [];
   prm.push(procedureName);
@@ -66,7 +78,11 @@ routes.post('/query', async (req: Request, res: Response) => {
     QueryOpen(query_text, fieldValues)
       .then((result) => res.status(201).json(result))
       .catch((err) =>
-        res.status(500).json({ sqlerror: err.message, pros: 'met$proc_field_info_s', sqlprm: fieldValues }),
+        res.status(500).json({
+          sqlerror: err.message,
+          pros: 'met$proc_field_info_s',
+          sqlprm: fieldValues,
+        }),
       );
   } catch (err: any) {
     console.error(err);
