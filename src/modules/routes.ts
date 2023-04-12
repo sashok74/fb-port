@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { QueryOpen } from './db.js';
+import { QueryOpen, TransactionReadType } from './db.js';
 
 const routes = Router();
 
@@ -12,7 +12,7 @@ const addprm = (p: any, prm: any[]) => {
 };
 
 routes.get('/ProcList', (req, res) => {
-  QueryOpen('select proc_name from met$proc_info', [])
+  QueryOpen('select proc_name from met$proc_info', [], TransactionReadType.READ_ONLY)
     .then((result) => res.status(201).json(result))
     .catch((err) => res.status(500).json({ sqlerror: err.message, pros: 'met$proc_info' }));
 });
@@ -21,7 +21,7 @@ routes.get('/ProcInfo', (req, res) => {
   const prm: undefined[] = [];
   const { name } = req.query;
   addprm(name, prm);
-  QueryOpen('select * from met$proc_info_s(?)', prm)
+  QueryOpen('select * from met$proc_info_s(?)', prm, TransactionReadType.READ_ONLY)
     .then((result) => res.status(201).json(result))
     .catch((err) =>
       res.status(500).json({
@@ -36,7 +36,7 @@ routes.get('/ProcPrmInfo', (req, res) => {
   const prm: undefined[] = [];
   const { name } = req.query;
   addprm(name, prm);
-  QueryOpen('select * from met$proc_field_info_s(?)', prm)
+  QueryOpen('select * from met$proc_field_info_s(?)', prm, TransactionReadType.READ_ONLY)
     .then((result) => res.status(201).json(result))
     .catch((err) =>
       res.status(500).json({
@@ -51,6 +51,7 @@ routes.post('/query', async (req: Request, res: Response) => {
   //const query = req.body.query;
   const procedureName = req.body.procedureName;
   const queryParams = req.body.prm;
+  const transType = req.body.transactonType; 
   const prm: undefined[] = [];
   let params: string[] = [];
   prm.push(procedureName);
@@ -59,6 +60,7 @@ routes.post('/query', async (req: Request, res: Response) => {
     const res = await QueryOpen(
       'select trim(param_name) PARAM_NAME from met$proc_field_info_s(?) where in_param = 0 order by param_number',
       prm,
+      TransactionReadType.READ_ONLY,
     );
     params = (res as { PARAM_NAME: string }[]).map((item) => item.PARAM_NAME);
   } catch (err: any) {
@@ -75,7 +77,7 @@ routes.post('/query', async (req: Request, res: Response) => {
   console.log(queryParams);
   try {
     const fieldValues: (any | null)[] = params.map((p) => queryParams[p] ?? null);
-    QueryOpen(query_text, fieldValues)
+    QueryOpen(query_text, fieldValues, transType)
       .then((result) => res.status(201).json(result))
       .catch((err) =>
         res.status(500).json({
