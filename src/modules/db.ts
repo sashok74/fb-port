@@ -30,8 +30,18 @@ interface IConnDB {
   queryCache: LRUCache<string, Statement, unknown>;
 }
 
+/* кэш результатов запросов минимальное время 3 сек. 
+   можно поставить отдельно для каждого запроса.
+*/
+const resCachOptions = {
+  max: 50,
+  ttl: 1000 * 3,
+  updateAgeOnGet: true,
+};
+const resCache = new LRUCache<string, object[]>(resCachOptions);
+
 /** перечисление для выбора Read Only транцакции */
-export  enum TransactionReadType {
+export enum TransactionReadType {
   READ_ONLY = 'READ_ONLY',
   READ_WRITE = 'READ_WRITE',
 }
@@ -50,12 +60,12 @@ const dbFactory = {
     };
 
     const transactionRO = await attachment.startTransaction(trOptions);
-    const options = {
+    const statCachOptions = {
       max: 50,
-      ttl: 1000 * 60 * 60,
+      ttl: 1000 * 60 * 10,
       updateAgeOnGet: true,
     };
-    const queryCache = new LRUCache<string, Statement>(options);
+    const queryCache = new LRUCache<string, Statement>(statCachOptions);
     const ret: IConnDB = { attachment: attachment, transactionRO: transactionRO, queryCache: queryCache };
     console.log(`connect`);
     return ret;
@@ -67,7 +77,7 @@ const dbFactory = {
 };
 
 const opts = {
-  max: 100, // maximum size of the pool
+  max: 10, // maximum size of the pool
   min: 2, // minimum size of the pool
 };
 
@@ -79,11 +89,21 @@ export const handleExit = () => {
 };
 
 export async function QueryOpen(sql: string, prm: undefined[], transType?: TransactionReadType): Promise<object[]> {
-  const conn = await dbPool.acquire();
   console.log(`SQL = ${sql}`);
   console.log(`PRM = ${prm}`);
+  const statCachKey = `${sql}:${JSON.stringify(prm)}`;
+
+  if (transType === TransactionReadType.READ_ONLY) {
+    const resFromCache = resCache.get(statCachKey);
+    if (resFromCache) {
+      console.log(`return from cache`);
+      return resFromCache;
+    }
+  }
+
   let transaction;
   let transCommit = true;
+  const conn = await dbPool.acquire();
   if (transType === undefined || transType === TransactionReadType.READ_WRITE) {
     transaction = await conn.attachment.startTransaction();
   } else {
@@ -95,11 +115,12 @@ export async function QueryOpen(sql: string, prm: undefined[], transType?: Trans
     stat = await conn.attachment.prepare(transaction, sql, undefined);
     conn.queryCache.set(sql, stat);
   }
-  console.log(`TRAN = ${transCommit ? 'READ_WRITE':'READ_ONLY' }`);
+  console.log(`TRAN = ${transCommit ? 'READ_WRITE' : 'READ_ONLY'}`);
   const recSet = await stat.executeQuery(transaction, prm, undefined);
   const res = await recSet.fetchAsObject();
   if (transCommit) transaction.commit();
   recSet.close();
   dbPool.release(conn);
+  resCache.set(statCachKey, res);
   return res;
 }
