@@ -9,6 +9,8 @@ declare global {
       DB_NAME: string;
       DB_USER: string;
       DB_PASSWORD: string;
+      CACHE_RES_TTL: number;
+      CACHE_PREPARE_TTL: number;
     }
   }
 }

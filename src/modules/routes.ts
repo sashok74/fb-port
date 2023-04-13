@@ -1,5 +1,5 @@
 import { Request, Response, Router } from 'express';
-import { QueryOpen, TransactionReadType } from './db.js';
+import { QueryOpen, TransactionReadType, IoptQuery } from './db.js';
 
 const routes = Router();
 
@@ -11,8 +11,14 @@ const addprm = (p: any, prm: any[]) => {
   }
 };
 
+
+const queryOpt:IoptQuery = {
+  TransactionReadType: TransactionReadType.READ_ONLY,
+  ttl: 1000 * 60 * 60,
+}
+
 routes.get('/ProcList', (req, res) => {
-  QueryOpen('select proc_name from met$proc_info', [], TransactionReadType.READ_ONLY)
+  QueryOpen('select proc_name from met$proc_info', [], queryOpt)
     .then((result) => res.status(201).json(result))
     .catch((err) => res.status(500).json({ sqlerror: err.message, pros: 'met$proc_info' }));
 });
@@ -21,7 +27,7 @@ routes.get('/ProcInfo', (req, res) => {
   const prm: undefined[] = [];
   const { name } = req.query;
   addprm(name, prm);
-  QueryOpen('select * from met$proc_info_s(?)', prm, TransactionReadType.READ_ONLY)
+  QueryOpen('select * from met$proc_info_s(?)', prm, queryOpt)
     .then((result) => res.status(201).json(result))
     .catch((err) =>
       res.status(500).json({
@@ -36,7 +42,7 @@ routes.get('/ProcPrmInfo', (req, res) => {
   const prm: undefined[] = [];
   const { name } = req.query;
   addprm(name, prm);
-  QueryOpen('select * from met$proc_field_info_s(?)', prm, TransactionReadType.READ_ONLY)
+  QueryOpen('select * from met$proc_field_info_s(?)', prm, queryOpt)
     .then((result) => res.status(201).json(result))
     .catch((err) =>
       res.status(500).json({
@@ -60,7 +66,7 @@ routes.post('/query', async (req: Request, res: Response) => {
     const res = await QueryOpen(
       'select trim(param_name) PARAM_NAME from met$proc_field_info_s(?) where in_param = 0 order by param_number',
       prm,
-      TransactionReadType.READ_ONLY,
+      queryOpt,
     );
     params = (res as { PARAM_NAME: string }[]).map((item) => item.PARAM_NAME);
   } catch (err: any) {

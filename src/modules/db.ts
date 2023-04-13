@@ -19,8 +19,11 @@ const DB_PORT = process.env.DB_PORT;
 const DB_NAME = process.env.DB_NAME;
 const DB_USER = process.env.DB_USER;
 const DB_PASSWORD = process.env.DB_PASSWORD;
+const CACHE_RES_TTL = process.env.CACHE_RES_TTL | 0;
+const CACHE_PREPARE_TTL = process.env.CACHE_PREPARE_TTL | 0;
 const connectionString = `${DB_HOST}/${DB_PORT}:${DB_NAME}`;
 console.log(connectionString);
+
 const loginString: ConnectOptions = { username: `${DB_USER}`, password: `${DB_PASSWORD}` };
 
 /* фабрика коннектов к базе */
@@ -30,14 +33,20 @@ interface IConnDB {
   queryCache: LRUCache<string, Statement, unknown>;
 }
 
+export interface IoptQuery {
+  TransactionReadType: TransactionReadType,
+  ttl: number; 
+}
+
 /* кэш результатов запросов минимальное время 3 сек. 
    можно поставить отдельно для каждого запроса.
 */
 const resCachOptions = {
   max: 50,
-  ttl: 1000 * 3,
+  ttl: CACHE_RES_TTL,
   updateAgeOnGet: true,
 };
+
 const resCache = new LRUCache<string, object[]>(resCachOptions);
 
 /** перечисление для выбора Read Only транцакции */
@@ -62,9 +71,10 @@ const dbFactory = {
     const transactionRO = await attachment.startTransaction(trOptions);
     const statCachOptions = {
       max: 50,
-      ttl: 1000 * 60 * 10,
+      ttl: CACHE_PREPARE_TTL,
       updateAgeOnGet: true,
     };
+    
     const queryCache = new LRUCache<string, Statement>(statCachOptions);
     const ret: IConnDB = { attachment: attachment, transactionRO: transactionRO, queryCache: queryCache };
     console.log(`connect`);
@@ -88,12 +98,11 @@ export const handleExit = () => {
   dbPool.drain().then(() => dbPool.clear());
 };
 
-export async function QueryOpen(sql: string, prm: undefined[], transType?: TransactionReadType): Promise<object[]> {
-  console.log(`SQL = ${sql}`);
-  console.log(`PRM = ${prm}`);
+export async function QueryOpen(sql: string, prm: undefined[], optQuery: IoptQuery): Promise<object[]> {
+  console.log(`SQL = ${sql} PRM = ${JSON.stringify(prm)}`);
   const statCachKey = `${sql}:${JSON.stringify(prm)}`;
 
-  if (transType === TransactionReadType.READ_ONLY) {
+  if (optQuery?.TransactionReadType === TransactionReadType.READ_ONLY) {
     const resFromCache = resCache.get(statCachKey);
     if (resFromCache) {
       console.log(`return from cache`);
@@ -104,7 +113,7 @@ export async function QueryOpen(sql: string, prm: undefined[], transType?: Trans
   let transaction;
   let transCommit = true;
   const conn = await dbPool.acquire();
-  if (transType === undefined || transType === TransactionReadType.READ_WRITE) {
+  if (optQuery.TransactionReadType === undefined || optQuery.TransactionReadType === TransactionReadType.READ_WRITE) {
     transaction = await conn.attachment.startTransaction();
   } else {
     transaction = conn.transactionRO;
@@ -121,6 +130,7 @@ export async function QueryOpen(sql: string, prm: undefined[], transType?: Trans
   if (transCommit) transaction.commit();
   recSet.close();
   dbPool.release(conn);
-  resCache.set(statCachKey, res);
+  const options = optQuery.ttl > 0 ? { ttl: optQuery?.ttl } : undefined;
+  resCache.set(statCachKey, res, options);
   return res;
 }
