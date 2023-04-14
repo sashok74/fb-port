@@ -53,25 +53,36 @@ routes.get('/ProcPrmInfo', (req, res) => {
 });
 
 /* полные метаданные по процедуре */
-routes.get('/Proc', async (req, res) => {
+routes.get("/Proc", async (req, res) => {
   const prm: undefined[] = [];
   const { name } = req.query;
   addprm(name, prm);
 
   try {
-    const proc_info = await QueryOpen('select * from met$proc_info_s(?)', prm, queryOpt);
-    const fields_info = await QueryOpen('select * from met$proc_field_info_s(?)', prm, queryOpt);
-    return res.status(201).json({ PROC_INFO: proc_info, FIELDS_INFO: fields_info });
+    const proc_info = await QueryOpen(
+      "select * from met$proc_info_s(?)",
+      prm,
+      queryOpt,
+    );
+    const fields_info = await QueryOpen(
+      "select * from met$proc_field_info_s(?)",
+      prm,
+      queryOpt,
+    );
+    return res.status(201).json({
+      PROC_INFO: proc_info[0],
+      FIELDS_INFO: fields_info,
+    });
   } catch (err: any) {
     res.status(500).json({
       sqlerror: err.message,
-      pros: 'Proc',
+      pros: "Proc",
       sqlprm: prm,
     });
   }
 });
 
-routes.post('/query', async (req: Request, res: Response) => {
+routes.post("/query", async (req: Request, res: Response) => {
   //const query = req.body.query;
   const procedureName = req.body.procedureName;
   const queryParams = req.body.prm;
@@ -82,7 +93,7 @@ routes.post('/query', async (req: Request, res: Response) => {
   console.log(prm);
   try {
     const res = await QueryOpen(
-      'select trim(param_name) PARAM_NAME from met$proc_field_info_s(?) where in_param = 0 order by param_number',
+      "select trim(param_name) PARAM_NAME from met$proc_field_info_s(?) where in_param = 0 order by param_number",
       prm,
       queryOpt,
     );
@@ -90,25 +101,27 @@ routes.post('/query', async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({
       sqlerror: err.message,
-      pros: 'met$proc_field_info_s',
+      pros: "met$proc_field_info_s",
       sqlprm: prm,
     });
   }
 
-  const placeholders: string = Array(params.length).fill('?').join(', ');
+  const placeholders: string = Array(params.length).fill("?").join(", ");
   const query_text = `select * from ${procedureName} (${placeholders})`;
   console.log(query_text);
   console.log(queryParams);
   try {
-    const fieldValues: (undefined)[] = params.map((p) => queryParams[p] ?? null);
+    const fieldValues: (undefined)[] = params.map((p) =>
+      queryParams[p] ?? null
+    );
     QueryOpen(query_text, fieldValues, transType)
       .then((result) => res.status(201).json(result))
       .catch((err) =>
         res.status(500).json({
           sqlerror: err.message,
-          pros: 'met$proc_field_info_s',
+          pros: "met$proc_field_info_s",
           sqlprm: fieldValues,
-        }),
+        })
       );
   } catch (err: any) {
     console.error(err);
