@@ -3,7 +3,7 @@ import { QueryOpen, TransactionReadType, IoptQuery } from './db.js';
 
 const routes = Router();
 
-const addprm = (p: any, prm: any[]) => {
+const addprm = (p: unknown, prm: unknown[]) => {
   if (p) {
     prm.push(p);
   } else {
@@ -11,11 +11,10 @@ const addprm = (p: any, prm: any[]) => {
   }
 };
 
-
-const queryOpt:IoptQuery = {
+const queryOpt: IoptQuery = {
   TransactionReadType: TransactionReadType.READ_ONLY,
   ttl: 1000 * 60 * 60,
-}
+};
 
 routes.get('/ProcList', (req, res) => {
   QueryOpen('select proc_name from met$proc_info', [], queryOpt)
@@ -53,11 +52,30 @@ routes.get('/ProcPrmInfo', (req, res) => {
     );
 });
 
+/* полные метаданные по процедуре */
+routes.get('/Proc', async (req, res) => {
+  const prm: undefined[] = [];
+  const { name } = req.query;
+  addprm(name, prm);
+
+  try {
+    const proc_info = await QueryOpen('select * from met$proc_info_s(?)', prm, queryOpt);
+    const fields_info = await QueryOpen('select * from met$proc_field_info_s(?)', prm, queryOpt);
+    return res.status(201).json({ PROC_INFO: proc_info, FIELDS_INFO: fields_info });
+  } catch (err: any) {
+    res.status(500).json({
+      sqlerror: err.message,
+      pros: 'Proc',
+      sqlprm: prm,
+    });
+  }
+});
+
 routes.post('/query', async (req: Request, res: Response) => {
   //const query = req.body.query;
   const procedureName = req.body.procedureName;
   const queryParams = req.body.prm;
-  const transType = req.body.transactonType; 
+  const transType = req.body.transactonType;
   const prm: undefined[] = [];
   let params: string[] = [];
   prm.push(procedureName);
@@ -82,7 +100,7 @@ routes.post('/query', async (req: Request, res: Response) => {
   console.log(query_text);
   console.log(queryParams);
   try {
-    const fieldValues: (any | null)[] = params.map((p) => queryParams[p] ?? null);
+    const fieldValues: (undefined)[] = params.map((p) => queryParams[p] ?? null);
     QueryOpen(query_text, fieldValues, transType)
       .then((result) => res.status(201).json(result))
       .catch((err) =>
