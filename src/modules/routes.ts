@@ -67,10 +67,10 @@ routes.get("/Proc", async (req, res) => {
     const fields_info = await QueryOpen(
       "select * from met$proc_field_info_s(?)",
       prm,
-      queryOpt,
+      qcueryOpt,
     );
     return res.status(201).json({
-      PROC_INFO: proc_info[0],
+      PROC_INFO:  proc_info.length > 0 ? proc_info[0]: {},
       FIELDS_INFO: fields_info,
     });
   } catch (err: any) {

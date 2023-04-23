@@ -115,6 +115,7 @@ export async function QueryOpen(sql: string, prm: undefined[], optQuery: IoptQue
   const conn = await dbPool.acquire();
   if (optQuery.TransactionReadType === undefined || optQuery.TransactionReadType === TransactionReadType.READ_WRITE) {
     transaction = await conn.attachment.startTransaction();
+    transCommit = true;
   } else {
     transaction = conn.transactionRO;
     transCommit = false;
