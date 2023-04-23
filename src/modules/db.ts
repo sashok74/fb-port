@@ -35,7 +35,7 @@ interface IConnDB {
 
 export interface IoptQuery {
   TransactionReadType: TransactionReadType,
-  ttl: number; 
+  ttl: number;
 }
 
 /* кэш результатов запросов минимальное время 3 сек. 
@@ -51,8 +51,8 @@ const resCache = new LRUCache<string, object[]>(resCachOptions);
 
 /** перечисление для выбора Read Only транцакции */
 export enum TransactionReadType {
-  READ_ONLY = 'READ_ONLY',
-  READ_WRITE = 'READ_WRITE',
+  READ_ONLY = "READ_ONLY",
+  READ_WRITE = "READ_WRITE",
 }
 
 const dbFactory = {
@@ -63,9 +63,9 @@ const dbFactory = {
     /** TransactionOptions interface. */
     const trOptions: TransactionOptions = {
       isolation: TransactionIsolation.READ_COMMITTED,
-      readCommittedMode: 'NO_RECORD_VERSION',
-      accessMode: 'READ_ONLY',
-      waitMode: 'NO_WAIT',
+      readCommittedMode: "NO_RECORD_VERSION",
+      accessMode: "READ_ONLY",
+      waitMode: "NO_WAIT",
     };
 
     const transactionRO = await attachment.startTransaction(trOptions);
@@ -74,9 +74,13 @@ const dbFactory = {
       ttl: CACHE_PREPARE_TTL,
       updateAgeOnGet: true,
     };
-    
+
     const queryCache = new LRUCache<string, Statement>(statCachOptions);
-    const ret: IConnDB = { attachment: attachment, transactionRO: transactionRO, queryCache: queryCache };
+    const ret: IConnDB = {
+      attachment: attachment,
+      transactionRO: transactionRO,
+      queryCache: queryCache,
+    };
     console.log(`connect`);
     return ret;
   },
@@ -98,7 +102,11 @@ export const handleExit = () => {
   dbPool.drain().then(() => dbPool.clear());
 };
 
-export async function QueryOpen(sql: string, prm: undefined[], optQuery: IoptQuery): Promise<object[]> {
+export async function QueryOpen(
+  sql: string,
+  prm: undefined[],
+  optQuery: IoptQuery,
+): Promise<object[]> {
   console.log(`SQL = ${sql} PRM = ${JSON.stringify(prm)}`);
   const statCachKey = `${sql}:${JSON.stringify(prm)}`;
 
@@ -113,7 +121,10 @@ export async function QueryOpen(sql: string, prm: undefined[], optQuery: IoptQue
   let transaction;
   let transCommit = true;
   const conn = await dbPool.acquire();
-  if (optQuery.TransactionReadType === undefined || optQuery.TransactionReadType === TransactionReadType.READ_WRITE) {
+  if (
+    optQuery.TransactionReadType === undefined ||
+    optQuery.TransactionReadType === TransactionReadType.READ_WRITE
+  ) {
     transaction = await conn.attachment.startTransaction();
   } else {
     transaction = conn.transactionRO;
@@ -121,16 +132,33 @@ export async function QueryOpen(sql: string, prm: undefined[], optQuery: IoptQue
   }
   let stat = conn.queryCache.get(sql);
   if (!stat) {
-    stat = await conn.attachment.prepare(transaction, sql, undefined);
-    conn.queryCache.set(sql, stat);
+    try {
+      stat = await conn.attachment.prepare(transaction, sql, undefined);
+      conn.queryCache.set(sql, stat);
+    } catch (err: any) {
+      console.log(`prepare error: ${err.message}`);
+    }
   }
-  console.log(`TRAN = ${transCommit ? 'READ_WRITE' : 'READ_ONLY'}`);
-  const recSet = await stat.executeQuery(transaction, prm, undefined);
-  const res = await recSet.fetchAsObject();
+  console.log(`TRAN = ${transCommit ? "READ_WRITE" : "READ_ONLY"}`);
+  let recSet;
+  let res: object[] = [];
+  if (stat != undefined) {
+    try {
+      recSet = await stat.executeQuery(transaction, prm, undefined);
+      res = await recSet.fetchAsObject();
+      recSet.close();
+    } catch (err: any) {
+      console.log(`execute error: ${err.message}`);
+    }
+  }
   if (transCommit) transaction.commit();
-  recSet.close();
   dbPool.release(conn);
   const options = optQuery.ttl > 0 ? { ttl: optQuery?.ttl } : undefined;
-  resCache.set(statCachKey, res, options);
+  if (res.length > 0) {
+    resCache.set(statCachKey, res, options);
+    console.log(`result length = ${res.length}`);
+  } else {
+    console.log(`result length = 0 ${res}`);
+  }
   return res;
 }
