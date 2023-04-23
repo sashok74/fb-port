@@ -3,6 +3,10 @@ import { QueryOpen, TransactionReadType, IoptQuery } from './db.js';
 
 const routes = Router();
 
+interface TypeHandlers {
+  [key: string]: (value: string) => any;
+}
+
 const addprm = (p: unknown, prm: unknown[]) => {
   if (p) {
     prm.push(p);
@@ -88,16 +92,18 @@ routes.post("/query", async (req: Request, res: Response) => {
   const queryParams = req.body.prm;
   const transType = req.body.transactonType;
   const prm: undefined[] = [];
-  let params: string[] = [];
+  let params: { PARAM_NAME: string; PARAM_TYPE: string }[] = [];
   prm.push(procedureName);
   console.log(prm);
   try {
     const res = await QueryOpen(
-      "select trim(param_name) PARAM_NAME from met$proc_field_info_s(?) where in_param = 0 order by param_number",
+      "select trim(param_name) as PARAM_NAME, trim (param_type) as PARAM_TYPE from met$proc_field_info_s(?) where in_param = 0 and param_name not like '%_SELECT_TEXT%' order by param_number",
       prm,
       queryOpt,
     );
-    params = (res as { PARAM_NAME: string }[]).map((item) => item.PARAM_NAME);
+    params = (res as { PARAM_NAME: string; PARAM_TYPE: string }[]).map((item) =>
+      item
+    );
   } catch (err: any) {
     res.status(500).json({
       sqlerror: err.message,
@@ -110,16 +116,27 @@ routes.post("/query", async (req: Request, res: Response) => {
   const query_text = `select * from ${procedureName} (${placeholders})`;
   console.log(query_text);
   console.log(queryParams);
+
+  const typeHandlers: TypeHandlers = {
+    DATE: (value: string) => new Date(Date.parse(value)),
+    // Добавьте обработчики для других типов параметров, если необходимо.
+    DEFAULT: (value: string) => value,
+  };
+
   try {
-    const fieldValues: (undefined)[] = params.map((p) =>
-      queryParams[p] ?? null
-    );
+    const fieldValues: (undefined)[] = params.map((p) => {
+      const paramName = p.PARAM_NAME;
+      const paramValue = queryParams[paramName];
+      if (!paramValue) return null;
+      const handler = typeHandlers[p.PARAM_TYPE] || typeHandlers.DEFAULT;
+      return handler(paramValue);
+    });
     QueryOpen(query_text, fieldValues, transType)
-      .then((result) => res.status(201).json(result))
+      .then((result: object[]) => res.status(201).json(result))
       .catch((err) =>
         res.status(500).json({
           sqlerror: err.message,
-          pros: "met$proc_field_info_s",
+          proc: query_text,
           sqlprm: fieldValues,
         })
       );
