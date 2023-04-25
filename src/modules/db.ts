@@ -104,7 +104,7 @@ export const handleExit = () => {
 
 export async function QueryOpen(
   sql: string,
-  prm: undefined[],
+  prm: unknown[],
   optQuery: IoptQuery,
 ): Promise<object[]> {
   console.log(`SQL = ${sql} PRM = ${JSON.stringify(prm)}`);
