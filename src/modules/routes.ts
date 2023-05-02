@@ -112,7 +112,7 @@ routes.post('/query', async (req: Request, res: Response) => {
   }
 
   const placeholders: string = Array(params.length).fill('?').join(', ');
-  const query_text = `select * from ${procedureName.trim()} (${placeholders})`;
+  const query_text = `select * from ${procedureName.trim()}${placeholders ? `(${placeholders})` : ''}`;
   console.log(query_text);
   console.log(queryParams);
 
