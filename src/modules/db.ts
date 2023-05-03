@@ -107,7 +107,7 @@ export async function QueryOpen(
   prm: unknown[],
   optQuery: IoptQuery,
 ): Promise<object[]> {
-  console.log(`SQL = ${sql} PRM = ${JSON.stringify(prm)}`);
+  console.log(`SQL = ${sql} PRM = ${JSON.stringify(prm)} TRAN = "${optQuery.TransactionReadType}"`);
   const statCachKey = `${sql}:${JSON.stringify(prm)}`;
 
   if (optQuery?.TransactionReadType === TransactionReadType.READ_ONLY) {

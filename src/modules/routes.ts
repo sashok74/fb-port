@@ -98,9 +98,8 @@ routes.post('/query', async (req: Request, res: Response) => {
       order by param_number
     `;
     const fieldInfoParams = prm;
-    const fieldInfoOptions = queryOpt;
 
-    const fieldInfoResult = await QueryOpen(fieldInfoQuery, fieldInfoParams, fieldInfoOptions);
+    const fieldInfoResult = await QueryOpen(fieldInfoQuery, fieldInfoParams, queryOpt);
     params = (fieldInfoResult as { PARAM_NAME: string; PARAM_TYPE: string }[]).map((item) => item);
   } catch (err: any) {
     res.status(500).json({
@@ -131,7 +130,8 @@ routes.post('/query', async (req: Request, res: Response) => {
       return handler(paramValue);
     });
 
-    const result = await QueryOpen(query_text, fieldValues, transType);
+    const result = await QueryOpen(query_text, fieldValues, {TransactionReadType: transType,
+      ttl: 1000 * 60 * 5,});
     res.status(201).json(result);
   } catch (err: any) {
     console.error(err);
