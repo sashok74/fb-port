@@ -115,10 +115,6 @@ routes.post('/query', async (req: Request, res: Response) => {
 
   const placeholders: string = Array(params.length).fill('?').join(', ');
   const query_text = `select * from ${procedureName.trim()}${placeholders ? `(${placeholders})` : ''}`;
-  console.log('query_text: ', query_text);
-  console.log('params: ', params);
-  console.log('queryParams: ', queryParams);
-
   const typeHandlers: TypeHandlers = {
     DATE: (value: string) => new Date(Date.parse(value)),
     // Добавьте обработчики для других типов параметров, если необходимо.
@@ -129,10 +125,16 @@ routes.post('/query', async (req: Request, res: Response) => {
     fieldValues = params.map((p) => {
       const paramName = p.PARAM_NAME;
       const paramValue = queryParams[paramName];
+      console.log('field map: ', paramName, paramValue);
       if (!paramValue) return null;
       const handler = typeHandlers[p.PARAM_TYPE] || typeHandlers.DEFAULT;
       return handler(paramValue);
     });
+    
+    console.log('query_text: ', query_text);
+    console.log('params: ', params);
+    console.log('queryParams: ', queryParams);
+    console.log('fieldValues: ', fieldValues);
 
     const result = await QueryOpen(query_text, fieldValues, {TransactionReadType: transType,
       ttl: 1000 * 60 * 5,});
