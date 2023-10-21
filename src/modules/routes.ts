@@ -82,19 +82,13 @@ routes.get('/Proc', async (req, res) => {
   }
 });
 
-routes.post('/C1_ZP', async (req: Request, res: Response) => {
-  const PRM = req.body.PRM;
-  const ZP = req.body.ЗаказПокупателя;
-  const RES = {"DOC_ID":1,"ITEMS_COUNT":1};
-  console.log(PRM);
-  console.log(ZP);
-  res.status(201).json({ZP,RES});
-});
+
 
 routes.post('/query', async (req: Request, res: Response) => {
   //const query = req.body.query;
   const procedureName = req.body.procedureName;
   const queryParams = req.body.prm;
+  console.log('in param', queryParams);
   const transType = req.body.transactonType;
   const prm: unknown[] = [];
   let params: { PARAM_NAME: string; PARAM_TYPE: string }[] = [];
@@ -121,8 +115,9 @@ routes.post('/query', async (req: Request, res: Response) => {
 
   const placeholders: string = Array(params.length).fill('?').join(', ');
   const query_text = `select * from ${procedureName.trim()}${placeholders ? `(${placeholders})` : ''}`;
-  console.log(query_text);
-  console.log(queryParams);
+  console.log('query_text: ', query_text);
+  console.log('params: ', params);
+  console.log('queryParams: ', queryParams);
 
   const typeHandlers: TypeHandlers = {
     DATE: (value: string) => new Date(Date.parse(value)),
