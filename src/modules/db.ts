@@ -63,7 +63,7 @@ const dbFactory = {
     /** TransactionOptions interface. */
     const trOptions: TransactionOptions = {
       isolation: TransactionIsolation.READ_COMMITTED,
-      readCommittedMode: "NO_RECORD_VERSION",
+      readCommittedMode: "RECORD_VERSION",
       accessMode: "READ_ONLY",
       waitMode: "NO_WAIT",
     };
@@ -123,7 +123,7 @@ export async function QueryOpen(
   const conn = await dbPool.acquire();
   const trOptions: TransactionOptions = {
     isolation: TransactionIsolation.READ_COMMITTED,
-    readCommittedMode: "NO_RECORD_VERSION",
+    readCommittedMode: "RECORD_VERSION",
     accessMode: "READ_WRITE",
     waitMode: "NO_WAIT",
   };
