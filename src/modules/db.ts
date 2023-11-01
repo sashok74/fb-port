@@ -66,6 +66,7 @@ const dbFactory = {
       readCommittedMode: "RECORD_VERSION",
       accessMode: "READ_ONLY",
       waitMode: "NO_WAIT",
+      autoCommit: false
     };
 
     const transactionRO = await attachment.startTransaction(trOptions);
