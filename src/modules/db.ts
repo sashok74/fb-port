@@ -159,7 +159,10 @@ export async function QueryOpen(
       console.log(`execute error: ${err.message}`);
     }
   }
-  if (transCommit) transaction.commit();
+  if (transCommit) {
+    console.log(`transaction.commit: ${sql}`);
+     transaction.commit();
+  }   
   dbPool.release(conn);
   const options = optQuery.ttl > 0 ? { ttl: optQuery?.ttl } : undefined;
   if (res.length > 0) {
