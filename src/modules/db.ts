@@ -121,11 +121,18 @@ export async function QueryOpen(
   let transaction;
   let transCommit = true;
   const conn = await dbPool.acquire();
+  const trOptions: TransactionOptions = {
+    isolation: TransactionIsolation.READ_COMMITTED,
+    readCommittedMode: "NO_RECORD_VERSION",
+    accessMode: "READ_WRITE",
+    waitMode: "NO_WAIT",
+  };
+
   if (
     optQuery.TransactionReadType === undefined ||
     optQuery.TransactionReadType === TransactionReadType.READ_WRITE
   ) {
-    transaction = await conn.attachment.startTransaction();
+    transaction = await conn.attachment.startTransaction(trOptions);
     transCommit = true;
   } else {
     transaction = conn.transactionRO;
