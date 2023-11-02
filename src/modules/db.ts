@@ -163,7 +163,7 @@ export async function QueryOpen(
   }
   if (transCommit) {
     console.log(`transaction.commit: ${sql}`);
-     transaction.commit();
+     await transaction.commit();
   }   
   dbPool.release(conn);
   const options = optQuery.ttl > 0 ? { ttl: optQuery?.ttl } : undefined;
