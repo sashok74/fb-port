@@ -127,6 +127,7 @@ export async function QueryOpen(
     readCommittedMode: "RECORD_VERSION",
     accessMode: "READ_WRITE",
     waitMode: "NO_WAIT",
+    autoCommit: false
   };
 
   if (
