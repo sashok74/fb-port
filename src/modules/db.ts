@@ -147,6 +147,7 @@ export async function QueryOpen(
       conn.queryCache.set(sql, stat);
     } catch (err: any) {
       console.log(`prepare error: ${err.message}`);
+      throw err;
     }
   }
   console.log(`TRAN = ${transCommit ? "READ_WRITE" : "READ_ONLY"}`);
@@ -159,6 +160,7 @@ export async function QueryOpen(
       recSet.close();
     } catch (err: any) {
       console.log(`execute error: ${err.message}`);
+      throw err;
     }
   }
   if (transCommit) {
